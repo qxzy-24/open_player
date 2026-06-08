@@ -43,3 +43,13 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Project-specific exclusions
+build_log.txt
+implementation_plan.md
+install_sdk.bat
+.kilo/
+.flutter-plugins
+.flutter-plugins-dependencies
+.metadata
+.vscode/
