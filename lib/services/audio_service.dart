@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:just_audio/just_audio.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:flutter/foundation.dart';
 import '../models/song_model.dart';
 
 /// Manages audio playback using just_audio.
@@ -74,17 +75,116 @@ class AudioPlayerService {
     await _loadAndPlay(song);
   }
 
+  double _speed = 1.0;
+  double get speed => _speed;
+
+  Future<void> setSpeed(double speed) async {
+    _speed = speed;
+    await _player.setSpeed(speed);
+  }
+
   Future<void> _loadAndPlay(Song song) async {
     try {
       if (song.uri != null) {
         await _player.setAudioSource(AudioSource.uri(Uri.parse(song.uri!)));
+        await _player.setSpeed(_speed);
         await _player.play();
       }
     } catch (e) {
       // Handle errors gracefully
-      print('Error playing song: $e');
+      debugPrint('Error playing song: $e');
     }
   }
+
+  void addNext(Song song) {
+    // If the song is already in the queue, remove it first to avoid duplicates
+    final existingIndex = _queue.indexOf(song);
+    if (existingIndex != -1) {
+      _queue.removeAt(existingIndex);
+      if (existingIndex < _currentIndex) {
+        _currentIndex--;
+      }
+    }
+
+    final insertIndex = _currentIndex + 1;
+    if (insertIndex >= 0 && insertIndex <= _queue.length) {
+      _queue.insert(insertIndex, song);
+    } else {
+      _queue.add(song);
+      if (_currentIndex == -1) {
+        _currentIndex = 0;
+      }
+    }
+    if (_shuffleEnabled) {
+      _generateShuffleOrder();
+    }
+  }
+
+  void addToQueue(Song song) {
+    if (!_queue.contains(song)) {
+      _queue.add(song);
+      if (_shuffleEnabled) {
+        _generateShuffleOrder();
+      }
+    }
+  }
+
+  void removeFromQueue(int index) {
+    if (index < 0 || index >= _queue.length) return;
+    
+    final isCurrent = index == _currentIndex;
+    _queue.removeAt(index);
+    
+    if (isCurrent) {
+      if (_queue.isEmpty) {
+        _currentIndex = -1;
+        stop();
+      } else {
+        if (_currentIndex >= _queue.length) {
+          _currentIndex = 0;
+        }
+        _loadAndPlay(_queue[_currentIndex]);
+      }
+    } else if (index < _currentIndex) {
+      _currentIndex--;
+    }
+    
+    if (_shuffleEnabled) {
+      _generateShuffleOrder();
+    }
+  }
+
+  void reorderQueue(int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= _queue.length) return;
+    if (newIndex < 0 || newIndex > _queue.length) return;
+
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    final Song song = _queue.removeAt(oldIndex);
+    _queue.insert(newIndex, song);
+
+    // Update currentIndex
+    if (_currentIndex == oldIndex) {
+      _currentIndex = newIndex;
+    } else if (oldIndex < _currentIndex && newIndex >= _currentIndex) {
+      _currentIndex--;
+    } else if (oldIndex > _currentIndex && newIndex <= _currentIndex) {
+      _currentIndex++;
+    }
+
+    if (_shuffleEnabled) {
+      _generateShuffleOrder();
+    }
+  }
+
+  void clearQueue() {
+    _queue.clear();
+    _currentIndex = -1;
+    _shuffledIndices.clear();
+    stop();
+  }
+
 
   Future<void> play() async => await _player.play();
 
