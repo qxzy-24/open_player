@@ -61,7 +61,7 @@ class MusicLibraryService {
           .map((s) => Song.fromSongModel(s))
           .toList();
     } catch (e) {
-      print('Error querying songs: $e');
+      debugPrint('Error querying songs: $e');
       return [];
     }
   }
@@ -77,7 +77,7 @@ class MusicLibraryService {
         orderType: orderType,
       );
     } catch (e) {
-      print('Error querying albums: $e');
+      debugPrint('Error querying albums: $e');
       return [];
     }
   }
@@ -93,7 +93,23 @@ class MusicLibraryService {
         orderType: orderType,
       );
     } catch (e) {
-      print('Error querying artists: $e');
+      debugPrint('Error querying artists: $e');
+      return [];
+    }
+  }
+
+  /// Query all genres.
+  Future<List<GenreModel>> queryGenres({
+    GenreSortType sortType = GenreSortType.GENRE,
+    OrderType orderType = OrderType.ASC_OR_SMALLER,
+  }) async {
+    try {
+      return await _audioQuery.queryGenres(
+        sortType: sortType,
+        orderType: orderType,
+      );
+    } catch (e) {
+      debugPrint('Error querying genres: $e');
       return [];
     }
   }
