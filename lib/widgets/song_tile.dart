@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/song_model.dart';
-import '../theme/app_theme.dart';
+import '../core/theme/app_theme.dart';
 import 'album_art.dart';
 
 /// A song list tile with album art, title, artist, duration, and actions.
@@ -9,6 +9,7 @@ class SongTile extends StatelessWidget {
   final bool isPlaying;
   final VoidCallback onTap;
   final VoidCallback? onFavoriteToggle;
+  final VoidCallback? onLongPress;
   final int index;
 
   const SongTile({
@@ -17,6 +18,7 @@ class SongTile extends StatelessWidget {
     required this.onTap,
     this.isPlaying = false,
     this.onFavoriteToggle,
+    this.onLongPress,
     this.index = 0,
   });
 
@@ -28,12 +30,12 @@ class SongTile extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       decoration: BoxDecoration(
         color: isPlaying
-            ? AppTheme.primaryColor.withValues(alpha: 0.12)
+            ? AppTheme.primary.withValues(alpha: 0.12)
             : Colors.transparent,
         borderRadius: BorderRadius.circular(AppTheme.radiusMd),
         border: isPlaying
             ? Border.all(
-                color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                color: AppTheme.primary.withValues(alpha: 0.3),
                 width: 1,
               )
             : null,
@@ -42,8 +44,9 @@ class SongTile extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
+          onLongPress: onLongPress,
           borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-          splashColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+          splashColor: AppTheme.primary.withValues(alpha: 0.1),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
@@ -63,15 +66,15 @@ class SongTile extends StatelessWidget {
                 // Song Info
                 Expanded(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         song.title,
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontSize: 15,
                               color: isPlaying
-                                  ? AppTheme.primaryColor
-                                  : AppTheme.textPrimary,
+                                  ? AppTheme.primary
+                                  : AppTheme.onSurface,
                             ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -80,10 +83,10 @@ class SongTile extends StatelessWidget {
                       Row(
                         children: [
                           if (isPlaying) ...[
-                            Icon(
+                            const Icon(
                               Icons.equalizer_rounded,
                               size: 14,
-                              color: AppTheme.primaryColor,
+                              color: AppTheme.primary,
                             ),
                             const SizedBox(width: 4),
                           ],
@@ -93,8 +96,8 @@ class SongTile extends StatelessWidget {
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                     fontSize: 12,
                                     color: isPlaying
-                                        ? AppTheme.primaryLight
-                                        : AppTheme.textMuted,
+                                        ? AppTheme.primary
+                                        : AppTheme.onSurfaceVariant,
                                   ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -111,7 +114,7 @@ class SongTile extends StatelessWidget {
                   song.formattedDuration,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         fontSize: 12,
-                        color: AppTheme.textMuted,
+                        color: AppTheme.onSurfaceVariant.withValues(alpha: 0.7),
                       ),
                 ),
 
@@ -128,7 +131,7 @@ class SongTile extends StatelessWidget {
                         size: 20,
                         color: song.isFavorite
                             ? AppTheme.accentWarm
-                            : AppTheme.textMuted,
+                            : AppTheme.onSurfaceVariant.withValues(alpha: 0.7),
                       ),
                     ),
                     onPressed: onFavoriteToggle,
