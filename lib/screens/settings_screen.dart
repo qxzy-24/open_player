@@ -1,247 +1,475 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
+import 'package:provider/provider.dart';
+import '../core/theme/app_theme.dart';
+import '../providers/settings_provider.dart';
+import '../providers/player_provider.dart';
+import '../widgets/glass_card.dart';
+import '../widgets/section_header.dart';
 
-/// Application settings screen.
-class SettingsScreen extends StatelessWidget {
+/// Bento-grid styled settings and audio engine screen.
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
   @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  // 10-band EQ mock state
+  final List<double> _eqBands = List.filled(10, 0.0);
+  String _selectedPreset = 'Flat';
+  String _replayGain = 'Off';
+
+  final Map<String, List<double>> _presets = {
+    'Flat': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    'Rock': [0.4, 0.3, 0.2, -0.1, -0.2, -0.1, 0.1, 0.3, 0.4, 0.5],
+    'Pop': [-0.2, -0.1, 0.1, 0.3, 0.4, 0.3, 0.0, -0.1, -0.2, -0.2],
+    'Jazz': [0.3, 0.2, 0.1, 0.2, -0.1, -0.1, 0.0, 0.1, 0.2, 0.3],
+    'Bass Boost': [0.7, 0.6, 0.4, 0.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+  };
+
+  final List<String> _bandLabels = [
+    '31Hz',
+    '62Hz',
+    '125Hz',
+    '250Hz',
+    '500Hz',
+    '1kHz',
+    '2kHz',
+    '4kHz',
+    '8kHz',
+    '16kHz'
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _applyPreset('Flat');
+  }
+
+  void _applyPreset(String preset) {
+    setState(() {
+      _selectedPreset = preset;
+      final values = _presets[preset]!;
+      for (int i = 0; i < 10; i++) {
+        _eqBands[i] = values[i];
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+    final settings = Provider.of<SettingsProvider>(context);
+    final player = Provider.of<PlayerProvider>(context, listen: false);
+
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: AppTheme.backgroundGradient,
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SectionHeader(title: 'Audio Settings'),
+
+                // ── BENTO GRID ─────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppTheme.marginMobile),
+                  child: Column(
+                    children: [
+                      // Grid Row 1: EQ Panel (Span 2)
+                      _buildEQPanel(),
+                      const SizedBox(height: AppTheme.spacingMd),
+
+                      // Grid Row 2: Playback Flow
+                      _buildPlaybackFlowPanel(settings),
+                      const SizedBox(height: AppTheme.spacingMd),
+
+                      // Grid Row 3: ReplayGain & Sleep Timer (Bento Cards Side by Side or stacked)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: _buildReplayGainCard()),
+                          const SizedBox(width: AppTheme.spacingMd),
+                          Expanded(child: _buildSleepTimerCard(settings, player)),
+                        ],
+                      ),
+                      const SizedBox(height: AppTheme.spacingMd),
+
+                      // Grid Row 4: Audio Engine Status & About
+                      _buildStatusPanel(),
+                      const SizedBox(height: AppTheme.spacingMd),
+                      _buildAboutCard(),
+                      const SizedBox(height: 120),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Bento Card widgets ──────────────────────────────────────────
+
+  Widget _buildEQPanel() {
+    return GlassCard(
+      padding: const EdgeInsets.all(AppTheme.spacingMd),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 16),
-          Text(
-            'Settings',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 28,
-                ),
-          ),
-          const SizedBox(height: 24),
-
-          // ── About Section ──────────────────────────────────
-          _buildSectionHeader('About'),
-          const SizedBox(height: 8),
-          _buildCard(
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildSettingItem(
-                icon: Icons.info_outline_rounded,
-                title: 'App Version',
-                trailing: const Text(
-                  '1.0.0',
-                  style: TextStyle(
-                    color: AppTheme.textMuted,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-              const Divider(height: 1, color: AppTheme.dividerColor),
-              _buildSettingItem(
-                icon: Icons.music_note_rounded,
-                title: 'Open Player',
-                subtitle: 'Premium Music Experience',
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
-          // ── Playback Section ───────────────────────────────
-          _buildSectionHeader('Playback'),
-          const SizedBox(height: 8),
-          _buildCard(
-            children: [
-              _buildSettingsSwitch(
-                icon: Icons.graphic_eq_rounded,
-                title: 'Gapless Playback',
-                subtitle: 'Smooth transitions between tracks',
-                value: true,
-                onChanged: (v) {},
-              ),
-              const Divider(height: 1, color: AppTheme.dividerColor),
-              _buildSettingsSwitch(
-                icon: Icons.speed_rounded,
-                title: 'Crossfade',
-                subtitle: 'Fade between songs',
-                value: false,
-                onChanged: (v) {},
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
-          // ── Display Section ────────────────────────────────
-          _buildSectionHeader('Display'),
-          const SizedBox(height: 8),
-          _buildCard(
-            children: [
-              _buildSettingsSwitch(
-                icon: Icons.dark_mode_rounded,
-                title: 'Dark Theme',
-                subtitle: 'Always on (more themes coming soon)',
-                value: true,
-                onChanged: (v) {},
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
-          // ── Credits ────────────────────────────────────────
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              child: Column(
-                children: [
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      gradient: AppTheme.primaryGradient,
-                      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                      boxShadow: AppTheme.glowShadow,
-                    ),
-                    child: const Icon(
-                      Icons.headphones_rounded,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Open Player',
-                    style: TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 16,
+              Text(
+                '10-BAND GRAPHIC EQUALIZER',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      letterSpacing: 1.5,
                       fontWeight: FontWeight.bold,
+                      color: AppTheme.primary,
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Made with ♥ using Flutter',
-                    style: TextStyle(
-                      color: AppTheme.textMuted,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
               ),
+              DropdownButton<String>(
+                value: _selectedPreset,
+                dropdownColor: AppTheme.surfaceContainerHigh,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppTheme.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
+                underline: const SizedBox.shrink(),
+                iconEnabledColor: AppTheme.primary,
+                items: _presets.keys.map((String key) {
+                  return DropdownMenuItem<String>(
+                    value: key,
+                    child: Text(key),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  if (val != null) _applyPreset(val);
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.spacingSm),
+          SizedBox(
+            height: 120,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: List.generate(10, (index) {
+                return Expanded(
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: RotatedBox(
+                          quarterTurns: 3,
+                          child: SliderTheme(
+                            data: SliderThemeData(
+                              activeTrackColor: AppTheme.primary,
+                              inactiveTrackColor: Colors.white.withValues(alpha: 0.05),
+                              thumbColor: AppTheme.tertiary,
+                              trackHeight: 2,
+                              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                              overlayShape: SliderComponentShape.noOverlay,
+                            ),
+                            child: Slider(
+                              value: _eqBands[index],
+                              min: -1.0,
+                              max: 1.0,
+                              onChanged: (val) {
+                                setState(() {
+                                  _eqBands[index] = val;
+                                  _selectedPreset = 'Custom';
+                                });
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _bandLabels[index],
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              fontSize: 8,
+                              color: AppTheme.onSurfaceVariant.withValues(alpha: 0.6),
+                            ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
             ),
           ),
-
-          const SizedBox(height: 100),
         ],
       ),
     );
   }
 
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4),
-      child: Text(
-        title.toUpperCase(),
-        style: const TextStyle(
-          color: AppTheme.primaryColor,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.2,
-        ),
+  Widget _buildPlaybackFlowPanel(SettingsProvider settings) {
+    return GlassCard(
+      padding: const EdgeInsets.all(AppTheme.spacingMd),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'PLAYBACK FLOW',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  letterSpacing: 1.5,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primary,
+                ),
+          ),
+          const SizedBox(height: AppTheme.spacingMd),
+          SwitchListTile(
+            title: const Text('Gapless Playback'),
+            subtitle: const Text('Eliminate silent gap between tracks'),
+            value: settings.gaplessPlayback,
+            contentPadding: EdgeInsets.zero,
+            onChanged: settings.setGaplessPlayback,
+          ),
+          const Divider(height: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Crossfade Duration'),
+                  Text(
+                    '${settings.crossfadeDuration.toInt()}s',
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Slider(
+                value: settings.crossfadeDuration,
+                min: 0,
+                max: 10,
+                divisions: 10,
+                onChanged: settings.setCrossfadeDuration,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildCard({required List<Widget> children}) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.bgCard,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-        border: Border.all(
-          color: AppTheme.dividerColor.withValues(alpha: 0.3),
-        ),
+  Widget _buildReplayGainCard() {
+    return GlassCard(
+      padding: const EdgeInsets.all(AppTheme.spacingMd),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'REPLAY GAIN',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  letterSpacing: 1.2,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primary,
+                ),
+          ),
+          const SizedBox(height: AppTheme.spacingSm),
+          ...['Off', 'Track', 'Album'].map((mode) {
+            return InkWell(
+              onTap: () {
+                setState(() {
+                  _replayGain = mode;
+                });
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Icon(
+                      _replayGain == mode
+                          ? Icons.radio_button_checked_rounded
+                          : Icons.radio_button_off_rounded,
+                      color: _replayGain == mode ? AppTheme.primary : AppTheme.onSurfaceVariant,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      mode,
+                      style: TextStyle(
+                        fontWeight: _replayGain == mode ? FontWeight.w600 : FontWeight.normal,
+                        color: _replayGain == mode ? AppTheme.onSurface : AppTheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
       ),
-      child: Column(children: children),
     );
   }
 
-  Widget _buildSettingItem({
-    required IconData icon,
-    required String title,
-    String? subtitle,
-    Widget? trailing,
-    VoidCallback? onTap,
-  }) {
-    return ListTile(
-      leading: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: AppTheme.primaryColor.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-        ),
-        child: Icon(icon, size: 20, color: AppTheme.primaryColor),
+  Widget _buildSleepTimerCard(SettingsProvider settings, PlayerProvider player) {
+    return GlassCard(
+      padding: const EdgeInsets.all(AppTheme.spacingMd),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'SLEEP TIMER',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  letterSpacing: 1.2,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primary,
+                ),
+          ),
+          const SizedBox(height: AppTheme.spacingSm),
+          if (settings.isSleepTimerActive) ...[
+            Text(
+              settings.sleepTimerDisplay,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.accentWarm,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: settings.cancelSleepTimer,
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.redAccent,
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(0, 30),
+              ),
+              child: const Text('Cancel Timer'),
+            ),
+          ] else ...[
+            DropdownButton<int>(
+              value: settings.sleepTimerMinutes,
+              dropdownColor: AppTheme.surfaceContainerHigh,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppTheme.onSurface,
+                  ),
+              isExpanded: true,
+              underline: const SizedBox.shrink(),
+              items: [0, 15, 30, 45, 60].map((int mins) {
+                return DropdownMenuItem<int>(
+                  value: mins,
+                  child: Text(mins == 0 ? 'Off' : '$mins mins'),
+                );
+              }).toList(),
+              onChanged: (val) {
+                if (val != null && val > 0) {
+                  settings.startSleepTimer(val, onTimerComplete: () {
+                    player.pause();
+                  });
+                } else if (val == 0) {
+                  settings.cancelSleepTimer();
+                }
+              },
+            ),
+          ],
+        ],
       ),
-      title: Text(
-        title,
-        style: const TextStyle(
-          color: AppTheme.textPrimary,
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-        ),
+    );
+  }
+
+  Widget _buildStatusPanel() {
+    return GlassCard(
+      padding: const EdgeInsets.all(AppTheme.spacingMd),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'AUDIO ENGINE STATUS',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  letterSpacing: 1.5,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primary,
+                ),
+          ),
+          const SizedBox(height: AppTheme.spacingMd),
+          _buildStatusRow('Direct Audio Routing', 'Active', Colors.green),
+          const SizedBox(height: 8),
+          _buildStatusRow('Resampler', '32-bit Float / 48kHz', AppTheme.secondary),
+          const SizedBox(height: 8),
+          _buildStatusRow('Decoder', 'FFmpeg Native / Lossless', AppTheme.tertiary),
+        ],
       ),
-      subtitle: subtitle != null
-          ? Text(
-              subtitle,
-              style: const TextStyle(
-                color: AppTheme.textMuted,
+    );
+  }
+
+  Widget _buildStatusRow(String label, String value, Color color) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: AppTheme.onSurfaceVariant.withValues(alpha: 0.8),
+            fontSize: 13,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAboutCard() {
+    return GlassCard(
+      padding: const EdgeInsets.all(AppTheme.spacingMd),
+      child: Center(
+        child: Column(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                gradient: AppTheme.primaryGradient,
+                borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                boxShadow: AppTheme.glowShadow,
+              ),
+              child: const Icon(
+                Icons.headphones_rounded,
+                color: Colors.white,
+                size: 28,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Violet',
+              style: TextStyle(
+                color: AppTheme.onSurface,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'v1.0.0 — Premium VIOLET Glass Edition',
+              style: TextStyle(
+                color: AppTheme.onSurfaceVariant.withValues(alpha: 0.6),
                 fontSize: 12,
               ),
-            )
-          : null,
-      trailing: trailing,
-      onTap: onTap,
-    );
-  }
-
-  Widget _buildSettingsSwitch({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return ListTile(
-      leading: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: AppTheme.primaryColor.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Made with ♥ using Flutter',
+              style: TextStyle(
+                color: AppTheme.onSurfaceVariant.withValues(alpha: 0.6),
+                fontSize: 11,
+              ),
+            ),
+          ],
         ),
-        child: Icon(icon, size: 20, color: AppTheme.primaryColor),
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(
-          color: AppTheme.textPrimary,
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: const TextStyle(
-          color: AppTheme.textMuted,
-          fontSize: 12,
-        ),
-      ),
-      trailing: Switch(
-        value: value,
-        onChanged: onChanged,
-        activeColor: AppTheme.primaryColor,
       ),
     );
   }
