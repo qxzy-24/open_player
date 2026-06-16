@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
+import '../core/theme/app_theme.dart';
 import '../widgets/mini_player.dart';
+import '../widgets/floating_nav_bar.dart';
 import 'library_screen.dart';
+import 'folders_screen.dart';
+import 'search_screen.dart';
 import 'settings_screen.dart';
 
-/// Main app shell with bottom navigation and persistent mini player.
+/// Main app shell with floating bottom navigation and persistent mini player.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -17,6 +20,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final List<Widget> _screens = const [
     LibraryScreen(),
+    FoldersScreen(),
+    SearchScreen(),
     SettingsScreen(),
   ];
 
@@ -24,76 +29,72 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: AppTheme.backgroundGradient,
-        ),
-        child: SafeArea(
-          child: Stack(
-            children: [
-              // Main Content
-              IndexedStack(
-                index: _currentIndex,
-                children: _screens,
-              ),
-
-              // Mini Player - positioned at bottom
-              const Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: MiniPlayer(),
-              ),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          // Atmospheric radial gradient from Stitch design
+          gradient: RadialGradient(
+            center: const Alignment(0.7, -0.5),
+            radius: 1.5,
+            colors: [
+              AppTheme.primaryContainer.withValues(alpha: 0.05),
+              AppTheme.surface,
             ],
           ),
         ),
-      ),
-      bottomNavigationBar: _buildBottomNav(),
-    );
-  }
+        child: Stack(
+          children: [
+            // Background noise texture (subtle)
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _NoisePainter(),
+              ),
+            ),
 
-  Widget _buildBottomNav() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.bgDark,
-        border: Border(
-          top: BorderSide(
-            color: AppTheme.dividerColor.withValues(alpha: 0.3),
-            width: 0.5,
-          ),
+            // Main Content
+            SafeArea(
+              bottom: false,
+              child: IndexedStack(
+                index: _currentIndex,
+                children: _screens,
+              ),
+            ),
+
+            // Mini Player — above the nav bar
+            const Positioned(
+              left: 0,
+              right: 0,
+              bottom: 76,
+              child: MiniPlayer(),
+            ),
+
+            // Floating Navigation Bar
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: SafeArea(
+                child: FloatingNavBar(
+                  currentIndex: _currentIndex,
+                  onTap: (index) => setState(() => _currentIndex = index),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
-      child: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        items: [
-          _buildNavItem(
-            icon: Icons.library_music_outlined,
-            activeIcon: Icons.library_music_rounded,
-            label: 'Library',
-          ),
-          _buildNavItem(
-            icon: Icons.settings_outlined,
-            activeIcon: Icons.settings_rounded,
-            label: 'Settings',
-          ),
-        ],
-      ),
     );
+  }
+}
+
+/// Subtle noise texture overlay for atmospheric depth.
+class _NoisePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Intentionally empty — the noise is decorative and would need
+    // a shader for proper implementation. We rely on the gradient
+    // and glass effects for depth instead.
   }
 
-  BottomNavigationBarItem _buildNavItem({
-    required IconData icon,
-    required IconData activeIcon,
-    required String label,
-  }) {
-    return BottomNavigationBarItem(
-      icon: Icon(icon),
-      activeIcon: ShaderMask(
-        shaderCallback: (bounds) =>
-            AppTheme.primaryGradient.createShader(bounds),
-        child: Icon(activeIcon),
-      ),
-      label: label,
-    );
-  }
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
